@@ -9,6 +9,10 @@ import (
 )
 
 func main() {
+	port := os.Getenv("PORT")
+if port == "" {
+    port = "8080"
+}
 	r := gin.Default()
 	r.POST("/auth/reg", auth.RegHandler)
 	r.POST("/auth/auth", auth.AuthHandler)
@@ -19,7 +23,7 @@ func main() {
 	r.GET("/connect", chats.ConnectHandler)
 	auth.InitAuthDB()
 	chats.InitChatDB()
-	err := r.Run(":8080")
+	err := r.Run(port)
 	if err != nil {
 		log.Fatal(err)
 	}

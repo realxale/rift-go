@@ -41,12 +41,25 @@ flowchart LR
 ```text
 backend/
 ├── main.go
+├── cmd/tui/
 ├── go.mod
 ├── auth-service/
 ├── chat-service/
 ├── config/
 └── docker/
 ```
+
+## TUI Client
+
+Есть простой терминальный клиент:
+
+```bash
+go run ./cmd/tui
+```
+
+По умолчанию он подключается к `http://localhost:8080`.
+Для другого адреса используйте `RIFT_BASE_URL`.
+TUI сохраняет `user`, `token`, `room` и `base_url` в пользовательский конфиг и поднимает сохраненную сессию при следующем запуске.
 
 ## Request Flow
 
