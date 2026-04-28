@@ -9,7 +9,8 @@ import (
 )
 
 func main() {
-	port := os.Getenv("PORT")
+
+port := os.Getenv("PORT")
 if port == "" {
     port = "8080"
 }
@@ -22,6 +23,7 @@ if port == "" {
 	r.POST("/chats/send", chats.SendHandler)
 	r.GET("/connect", chats.ConnectHandler)
 	auth.InitAuthDB()
+	chats.InitLimit()
 	chats.InitChatDB()
 	err := r.Run(port)
 	if err != nil {

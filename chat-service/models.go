@@ -8,25 +8,25 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
 	"github.com/gorilla/websocket"
 )
+//create semaphor channel for limits in reader/writer
+var connsem chan struct{}
 
-// Максимальное количество одновременных воркеров (соединений)
-var WORKERS_SOCKETS = configuredSocketWorkers()
-
-// Мьютекс для потокобезопасного изменения счетчика WORKERS_SOCKETS
-var mu sync.Mutex
-
-func configuredSocketWorkers() int {
-	workers, err := strconv.Atoi(config.GetEnv("CHAT_WORKERS_SOCKETS", "200"))
-	if err != nil || workers <= 0 {
-		log.Println("invalid CHAT_WORKERS_SOCKETS, using default 200")
-		return 200
-	}
-	return workers
+func InitLimit() {
+    limit := os.Getenv("LIMIT")
+    if limit == "" {
+        limit = "100"
+    }   
+    limitInt, err := strconv.Atoi(limit)
+    if err != nil {
+        log.Printf("Ошибка конвертации LIMIT='%s', using default 100: %v", limit, err)
+        limitInt = 100
+    }
+    
+    connsem = make(chan struct{}, limitInt)
+    log.Printf("Connection semaphore initialized with limit: %d", limitInt)
 }
-
 // Move определяет тип действия в комнате
 type Move string
 
@@ -113,35 +113,27 @@ type ChannelCommand struct {
 // Reader главная горутина для чтения сообщений от клиента
 // Обрабатывает входящие WebSocket сообщения и управляет соединением
 func Reader(conn *websocket.Conn) {
-	// Безопасно уменьшаем счетчик активных воркеров
-	defer conn.Close()
-	mu.Lock()
-	if WORKERS_SOCKETS <= 0 {
-		mu.Unlock()
-		// Превышен лимит воркеров - отправляем ошибку и закрываем соединение
-		errMsg := map[string]string{"error": "too many workers"}
-		if err := conn.WriteJSON(errMsg); err != nil {
-			log.Println("failed to write error:", err)
-		}
-		return
-	}
-	WORKERS_SOCKETS = WORKERS_SOCKETS - 1
-	mu.Unlock()
-	defer func() {
-		mu.Lock()
-		WORKERS_SOCKETS = WORKERS_SOCKETS + 1
-		mu.Unlock()
-	}()
+defer conn.Close() // гарантия смерти соединения и writer 
+// Пытаемся захватить слот
+select {
+case connsem <- struct{}{}:
+    // Слот захвачен - обрабатываем соединение
+    defer func() { <-connsem }() // освободим слот при выходе
+    
 
+default:
+    // Слоты закончились - отправляем ошибку
+    errMsg := map[string]string{"error": "too many workers"}
+    if err := conn.WriteJSON(errMsg); err != nil {
+        log.Println("failed to write error:", err)
+    }
+    return
+}
 	// Устанавливаем таймаут на чтение (60 секунд)
 	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 	// Обработчик Pong-сообщений для поддержания соединения живым
 	conn.SetPongHandler(func(string) error {
-		// При получении pong обновляем таймаут
-		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		return nil
-	})
 
 	// Буферизированный канал для отправки сообщений клиенту
 	send := make(chan interface{}, 256)
@@ -171,16 +163,14 @@ func Reader(conn *websocket.Conn) {
 			return
 		}
 	}
-}
+
 
 // Writer горутина для отправки сообщений клиенту
 // conn - WebSocket соединение
 // send - канал для получения сообщений на отправку
 // ctx - контекст для graceful остановки
-func Writer(conn *websocket.Conn, send <-chan interface{}, ctx context.Context) {
+func Writer (conn *websocket.Conn, send <-chan interface{}, ctx context.Context) {
 	// Таймер для периодической отправки Ping сообщений (каждые 30 секунд)
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
 
 	for {
 		select {
@@ -196,12 +186,6 @@ func Writer(conn *websocket.Conn, send <-chan interface{}, ctx context.Context) 
 				return
 			}
 
-		// Отправляем Ping для поддержания соединения
-		case <-ticker.C:
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Println("ping error:", err)
-				return
-			}
 
 		// Получен сигнал остановки
 		case <-ctx.Done():
