@@ -7,12 +7,25 @@ import (
 	"errors"
 )
 
+type ModerationRequest struct {
+	JWT      string `json:"jwt" binding:"required"`       // JWT токен авторизации
+	RoomName string `json:"room_name" binding:"required"` // имя комнаты
+	Target string `json:"target"` // user target (username), message (text), if target - room - target hollow
+	Action string `json:"action"`// action (ban,mute,delete_room,delete_msg)
+}
+
 // ManageRoomService обрабатывает запросы на управление комнатой (вход/выход/подпись)
 // Принимает запрос на подпись или выход из комнаты
 // Возвращает ошибку, если операция не удалась
 func ManageRoomService(req SignRoomRequest) error {
+	// Парсим JWT
+	parsed, err := auth.ParseJWT(req.JWT)
+	if err != nil {
+		return err
+	}
+
 	// Выполняем операцию в базе данных
-	err, res := manageRoomDB(req)
+	err, res := manageRoomDB(req.RoomName, req.Token, parsed.Username, string(req.Move))
 	if err != nil {
 		return err
 	}
@@ -31,8 +44,15 @@ func sendService(req SendReq) (error, bool) {
 	if req.Text == "" {
 		return nil, false
 	}
+
+	// Парсим JWT
+	parsed, err := auth.ParseJWT(req.JWT)
+	if err != nil {
+		return err, false
+	}
+
 	// Отправляем сообщение в базу данных
-	err := sendDB(req)
+	err = sendDB(req.RoomName, req.Text, parsed.Username)
 	if err != nil {
 		return err, false
 	}
@@ -52,8 +72,14 @@ type Sync struct {
 // Принимает запрос с JWT токеном и временем последней синхронизации
 // Возвращает ошибку и список новых сообщений
 func syncService(req SyncRequest) (error, []Sync) {
+	// Парсим JWT
+	parsed, err := auth.ParseJWT(req.JWT)
+	if err != nil {
+		return err, nil
+	}
+
 	// Получаем новые сообщения из базы данных (начиная с req.LastTime)
-	err, msg := selectMessages(req.JWT, req.LastTime)
+	err, msg := selectMessages(parsed.Username, req.LastTime)
 	if err != nil {
 		return err, nil
 	}
@@ -82,7 +108,7 @@ func manager(c *WSM, Send chan any) error {
 		}
 
 		// Создаем комнату в базе данных
-			err = repostitoryCreateDB(req.RoomName, req.RoomType, req.AccessType, parsed.Username)
+			err = repostitoryCreateDB(req.RoomName, string(req.RoomType), string(req.AccessType), parsed.Username)
 			if err != nil {
 				return err
 			}
@@ -121,15 +147,23 @@ func manager(c *WSM, Send chan any) error {
 		}
 
 		// Выполняем операцию в базе данных
-		err, ok := manageRoomDB(req)
+		err = ManageRoomService(req)
 		if err != nil {
 			return err
 		}
-		// Проверяем успешность операции
-		if !ok {
-			return errors.New("failed(idk)")
-		}
 		// Отправляем клиенту код успеха 101
+		Send <- 101
+		return nil
+
+	case "moderation":
+		var req ModerationRequest
+		err := json.Unmarshal(c.Payload, &req)
+		if err != nil {
+			return err
+		}
+
+		// Здесь будет вызов в moderation-сервис
+		// Пока просто подтверждаем получение
 		Send <- 101
 		return nil
 

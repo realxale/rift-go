@@ -12,7 +12,7 @@ func buisnessReg(req RegRequest) error {
 	return err
 }
 func buisnessAuth(req *RegRequest) (error, bool, string) {
-	err, res := AuthUserDB(req)
+	err, res := AuthUserDB(req.Username, req.Password)
 	if err != nil {
 		return err, false, ""
 	}

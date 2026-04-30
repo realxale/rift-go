@@ -3,17 +3,19 @@ package main
 import (
 	"backend/auth-service"
 	"backend/chat-service"
+	"backend/database"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"log"
+	"os"
 )
 
 func main() {
 
-port := os.Getenv("PORT")
-if port == "" {
-    port = "8080"
-}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 	r := gin.Default()
 	r.POST("/auth/reg", auth.RegHandler)
 	r.POST("/auth/auth", auth.AuthHandler)
@@ -22,9 +24,11 @@ if port == "" {
 	r.POST("/chats/manage", chats.ExitRoomHandler)
 	r.POST("/chats/send", chats.SendHandler)
 	r.GET("/connect", chats.ConnectHandler)
-	auth.InitAuthDB()
+
+	// Инициализация БД (все таблицы)
+	database.InitAllTables()
+
 	chats.InitLimit()
-	chats.InitChatDB()
 	err := r.Run(port)
 	if err != nil {
 		log.Fatal(err)

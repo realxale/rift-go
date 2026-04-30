@@ -1,12 +1,11 @@
 package chats
 
 import (
-	"backend/config"
 	"context"
 	"encoding/json"
 	"log"
+	"os"
 	"strconv"
-	"sync"
 	"time"
 	"github.com/gorilla/websocket"
 )
@@ -113,27 +112,30 @@ type ChannelCommand struct {
 // Reader главная горутина для чтения сообщений от клиента
 // Обрабатывает входящие WebSocket сообщения и управляет соединением
 func Reader(conn *websocket.Conn) {
-defer conn.Close() // гарантия смерти соединения и writer 
-// Пытаемся захватить слот
-select {
-case connsem <- struct{}{}:
-    // Слот захвачен - обрабатываем соединение
-    defer func() { <-connsem }() // освободим слот при выходе
-    
+	defer conn.Close() // гарантия смерти соединения и writer
 
-default:
-    // Слоты закончились - отправляем ошибку
-    errMsg := map[string]string{"error": "too many workers"}
-    if err := conn.WriteJSON(errMsg); err != nil {
-        log.Println("failed to write error:", err)
-    }
-    return
-}
+	// Пытаемся захватить слот
+	select {
+	case connsem <- struct{}{}:
+		// Слот захвачен - обрабатываем соединение
+		defer func() { <-connsem }() // освободим слот при выходе
+	default:
+		// Слоты закончились - отправляем ошибку
+		errMsg := map[string]string{"error": "too many workers"}
+		if err := conn.WriteJSON(errMsg); err != nil {
+			log.Println("failed to write error:", err)
+		}
+		return
+	}
+
 	// Устанавливаем таймаут на чтение (60 секунд)
 	conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 
 	// Обработчик Pong-сообщений для поддержания соединения живым
 	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
 
 	// Буферизированный канал для отправки сообщений клиенту
 	send := make(chan interface{}, 256)
@@ -163,15 +165,13 @@ default:
 			return
 		}
 	}
-
+}
 
 // Writer горутина для отправки сообщений клиенту
 // conn - WebSocket соединение
 // send - канал для получения сообщений на отправку
 // ctx - контекст для graceful остановки
-func Writer (conn *websocket.Conn, send <-chan interface{}, ctx context.Context) {
-	// Таймер для периодической отправки Ping сообщений (каждые 30 секунд)
-
+func Writer(conn *websocket.Conn, send <-chan interface{}, ctx context.Context) {
 	for {
 		select {
 		// Получаем сообщение из канала на отправку
@@ -185,7 +185,6 @@ func Writer (conn *websocket.Conn, send <-chan interface{}, ctx context.Context)
 				log.Println("write error:", err)
 				return
 			}
-
 
 		// Получен сигнал остановки
 		case <-ctx.Done():

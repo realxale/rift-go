@@ -25,7 +25,7 @@ func RoomCreateHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	err = repostitoryCreateDB(req.RoomName, req.RoomType, req.AccessType, parsed.Username)
+	err = repostitoryCreateDB(req.RoomName, string(req.RoomType), string(req.AccessType), parsed.Username)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -43,13 +43,9 @@ func RoomSignHandler(c *gin.Context) {
 		return
 	}
 
-	err, ok := manageRoomDB(req)
+	err = ManageRoomService(req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot sign into room"})
 		return
 	}
 
@@ -65,13 +61,9 @@ func ExitRoomHandler(c *gin.Context) {
 		return
 	}
 
-	err, ok := manageRoomDB(req)
+	err = ManageRoomService(req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot leave room"})
 		return
 	}
 
