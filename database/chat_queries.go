@@ -16,6 +16,14 @@ type MessageRow struct {
 	CreatedAt time.Time
 }
 
+// RoomRow представляет строку комнаты для списка
+type RoomRow struct {
+	RoomName   string
+	RoomType   string
+	AccessType string
+	Role       string
+}
+
 // CreateRoomDB создаёт комнату и добавляет владельца
 func CreateRoomDB(roomName, roomType, accessType, username string) error {
 	ctx := context.Background()
@@ -213,4 +221,63 @@ func CheckMemberExists(roomName, username string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// GetRoomMessagesDB получает все сообщения из конкретной комнаты (последние 200)
+func GetRoomMessagesDB(roomName string) ([]MessageRow, error) {
+	query := `
+		SELECT m.text, m.username, m.room_name, m.created_at
+		FROM messages m
+		WHERE m.room_name = $1
+		ORDER BY m.created_at ASC
+		LIMIT 200
+	`
+	rows, err := Pool.Query(context.Background(), query, roomName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var msgs []MessageRow
+	for rows.Next() {
+		var msg MessageRow
+		if err := rows.Scan(&msg.Text, &msg.Username, &msg.RoomName, &msg.CreatedAt); err != nil {
+			return nil, err
+		}
+		msgs = append(msgs, msg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return msgs, nil
+}
+
+// GetUserRoomsDB получает список комнат пользователя с ролями
+func GetUserRoomsDB(username string) ([]RoomRow, error) {
+	query := `
+		SELECT r.room_name, r.room_type, r.access_type, m.role
+		FROM rooms r
+		JOIN members m ON r.room_name = m.room_name
+		WHERE m.username = $1 AND m.status = 'in'
+		ORDER BY r.created_at DESC
+	`
+	rows, err := Pool.Query(context.Background(), query, username)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var rooms []RoomRow
+	for rows.Next() {
+		var room RoomRow
+		if err := rows.Scan(&room.RoomName, &room.RoomType, &room.AccessType, &room.Role); err != nil {
+			return nil, err
+		}
+		rooms = append(rooms, room)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return rooms, nil
 }

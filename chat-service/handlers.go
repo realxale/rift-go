@@ -88,10 +88,30 @@ func SendHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "successfully"})
 }
 
+func RoomsListHandler(c *gin.Context) {
+	var req struct {
+		JWT string `json:"jwt" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	rooms, err := roomsListService(req.JWT)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"rooms": rooms})
+}
+
 func ConnectHandler(c *gin.Context) {
-token := c.GetHeader("JWT")
+	token := c.GetHeader("JWT")
+	if token == "" {
+		token = c.Query("jwt")
+	}
 	_, err := auth.ParseJWT(token)
 	if err != nil {
+		log.Println("ws auth error:", err)
 		return
 	}
 

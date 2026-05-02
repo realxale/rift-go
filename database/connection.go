@@ -76,7 +76,7 @@ func InitAllTables() {
 		CREATE TABLE IF NOT EXISTS members (
 			room_name TEXT REFERENCES rooms(room_name),
 			username TEXT REFERENCES users(username),
-			status TEXT NOT NULL,
+			status TEXT DEFAULT 'in',
 			role TEXT NOT NULL,
 			created_at TIMESTAMP DEFAULT NOW(),
 			UNIQUE (room_name, username)
@@ -85,6 +85,10 @@ func InitAllTables() {
 	if err != nil {
 		log.Fatal("failed to create members table:", err)
 	}
+
+	// Миграция: меняем тип status с BOOL на TEXT, если таблица уже существует
+	_, _ = conn.Exec(ctx, `ALTER TABLE members ALTER COLUMN status TYPE TEXT USING status::text`)
+	_, _ = conn.Exec(ctx, `ALTER TABLE members ALTER COLUMN status SET DEFAULT 'in'`)
 
 	_, err = conn.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS tokens (

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"log"
+	"net/http"
 	"os"
 )
 
@@ -14,15 +15,30 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = ":8080"
+	} else if port[0] != ':' {
+		port = ":" + port
 	}
 	r := gin.Default()
+
+	// CORS middleware
+	r.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, JWT")
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	})
 	r.POST("/auth/reg", auth.RegHandler)
 	r.POST("/auth/auth", auth.AuthHandler)
 	r.POST("/chats/room_create", chats.RoomCreateHandler)
 	r.POST("/chats/room_sign", chats.RoomSignHandler)
 	r.POST("/chats/manage", chats.ExitRoomHandler)
 	r.POST("/chats/send", chats.SendHandler)
+	r.POST("/chats/rooms_list", chats.RoomsListHandler)
 	r.GET("/connect", chats.ConnectHandler)
 
 	// Инициализация БД (все таблицы)

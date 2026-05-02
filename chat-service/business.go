@@ -2,17 +2,12 @@ package chats
 
 import (
 	"backend/auth-service"
+	"backend/chat-moderation"
+	"backend/database"
 	"encoding/json"
 	"time"
 	"errors"
 )
-
-type ModerationRequest struct {
-	JWT      string `json:"jwt" binding:"required"`       // JWT токен авторизации
-	RoomName string `json:"room_name" binding:"required"` // имя комнаты
-	Target string `json:"target"` // user target (username), message (text), if target - room - target hollow
-	Action string `json:"action"`// action (ban,mute,delete_room,delete_msg)
-}
 
 // ManageRoomService обрабатывает запросы на управление комнатой (вход/выход/подпись)
 // Принимает запрос на подпись или выход из комнаты
@@ -59,13 +54,43 @@ func sendService(req SendReq) (error, bool) {
 	return nil, true
 }
 
+// RoomInfo структура для списка комнат
+type RoomInfo struct {
+	RoomName   string `json:"room_name"`
+	RoomType   string `json:"room_type"`
+	AccessType string `json:"access_type"`
+	Role       string `json:"role"`
+}
+
+// roomsListService возвращает список комнат пользователя
+func roomsListService(jwt string) ([]RoomInfo, error) {
+	parsed, err := auth.ParseJWT(jwt)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := database.GetUserRoomsDB(parsed.Username)
+	if err != nil {
+		return nil, err
+	}
+	rooms := make([]RoomInfo, 0, len(rows))
+	for _, r := range rows {
+		rooms = append(rooms, RoomInfo{
+			RoomName:   r.RoomName,
+			RoomType:   r.RoomType,
+			AccessType: r.AccessType,
+			Role:       r.Role,
+		})
+	}
+	return rooms, nil
+}
+
 // Sync структура для синхронизации сообщений
 // Представляет одно сообщение для отправки клиенту при синхронизации
 type Sync struct {
-	Text      string    `db:"text"`       // Текст сообщения
-	Username  string    `db:"username"`   // Имя пользователя, отправившего сообщение
-	RoomName  string    `db:"room_name"`  // Название комнаты
-	CreatedAt time.Time `db:"created_at"` // Время создания сообщения
+	Text      string    `json:"text"`       // Текст сообщения
+	Username  string    `json:"username"`   // Имя пользователя, отправившего сообщение
+	RoomName  string    `json:"room_name"`  // Название комнаты
+	CreatedAt time.Time `json:"created_at"` // Время создания сообщения
 }
 
 // syncService выполняет синхронизацию сообщений для клиента
@@ -78,8 +103,14 @@ func syncService(req SyncRequest) (error, []Sync) {
 		return err, nil
 	}
 
-	// Получаем новые сообщения из базы данных (начиная с req.LastTime)
-	err, msg := selectMessages(parsed.Username, req.LastTime)
+	// Парсим время из строки RFC3339
+	lastTime, err := time.Parse(time.RFC3339, req.LastTime)
+	if err != nil {
+		return err, nil
+	}
+
+	// Получаем новые сообщения из базы данных (начиная с lastTime)
+	err, msg := selectMessages(parsed.Username, lastTime)
 	if err != nil {
 		return err, nil
 	}
@@ -156,15 +187,17 @@ func manager(c *WSM, Send chan any) error {
 		return nil
 
 	case "moderation":
-		var req ModerationRequest
+		var req moderation.ModerationRequest
 		err := json.Unmarshal(c.Payload, &req)
 		if err != nil {
 			return err
 		}
 
-		// Здесь будет вызов в moderation-сервис
-		// Пока просто подтверждаем получение
-		Send <- 101
+		msg, err := moderation.HandleModeration(req)
+		if err != nil {
+			return err
+		}
+		Send <- msg
 		return nil
 
 	// Обработка синхронизации сообщений

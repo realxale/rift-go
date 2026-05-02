@@ -98,8 +98,8 @@ type Client struct {
 
 // SyncRequest запрос на синхронизацию данных
 type SyncRequest struct {
-	JWT      string    `json:"jwt" binding:"required"`       // JWT токен
-	LastTime time.Time `json:"last_time" binding:"required"` // время последней синхронизации
+	JWT      string `json:"jwt" binding:"required"`       // JWT токен
+	LastTime string `json:"last_time" binding:"required"` // время последней синхронизации в RFC3339
 }
 
 // ChannelCommand команда для управления каналом
