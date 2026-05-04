@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"backend/config"
+	"backend/pkg/config"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"

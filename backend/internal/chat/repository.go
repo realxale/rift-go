@@ -1,7 +1,7 @@
 package chats
 
 import (
-	"backend/database"
+	"backend/pkg/database"
 	"time"
 )
 

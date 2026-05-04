@@ -1,10 +1,10 @@
 package main
 
 import (
-	"backend/internal/auth"
-	"backend/internal/chat"
-	"backend/pkg/database"
-	"backend/internal/fileload"
+	"backend/auth-service"
+	"backend/chat-service"
+	"backend/database"
+	"backend/fileload-service"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"log"

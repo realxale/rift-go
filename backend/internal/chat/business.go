@@ -1,9 +1,9 @@
 package chats
 
 import (
-	"backend/auth-service"
-	"backend/chat-moderation"
-	"backend/database"
+	"backend/internal/auth"
+	"backend/internal/moderation"
+	"backend/pkg/database"
 	"encoding/json"
 	"time"
 	"errors"

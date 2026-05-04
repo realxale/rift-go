@@ -1,7 +1,7 @@
 package database
 
 import (
-	"backend/config"
+	"backend/pkg/config"
 	"context"
 	"log"
 
@@ -114,6 +114,23 @@ func InitAllTables() {
 	`)
 	if err != nil {
 		log.Fatal("failed to create messages table:", err)
+	}
+
+	_, err = conn.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS files (
+			id SERIAL PRIMARY KEY,
+			file_name TEXT NOT NULL,
+			file_extension TEXT NOT NULL,
+			file_type TEXT NOT NULL,
+			file_size BIGINT NOT NULL,
+			file_path TEXT NOT NULL,
+			username TEXT REFERENCES users(username),
+			room_name TEXT REFERENCES rooms(room_name),
+			created_at TIMESTAMP DEFAULT NOW()
+		)
+	`)
+	if err != nil {
+		log.Fatal("failed to create files table:", err)
 	}
 
 	// Создаём пул после инициализации таблиц

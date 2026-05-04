@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"backend/database"
+	"backend/pkg/database"
 )
 
 // RegUserDB прокси к database.RegUserDB

@@ -1,8 +1,8 @@
 package moderation
 
 import (
-	"backend/auth-service"
-	"backend/database"
+	"backend/internal/auth"
+	"backend/pkg/database"
 	"errors"
 )
 

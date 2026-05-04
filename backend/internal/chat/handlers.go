@@ -1,11 +1,12 @@
 package chats
 
 import (
-	"github.com/gorilla/websocket"
-	"net/http"
-	"backend/auth-service"
-	"github.com/gin-gonic/gin"
 	"log"
+	"net/http"
+
+	"backend/internal/auth"
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 )
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
