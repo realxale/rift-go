@@ -3,8 +3,8 @@ package main
 import (
 	"backend/internal/auth"
 	"backend/internal/chat"
-	"backend/pkg/database"
 	"backend/internal/fileload"
+	"backend/pkg/database"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"log"

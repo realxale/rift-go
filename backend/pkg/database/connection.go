@@ -115,6 +115,17 @@ func InitAllTables() {
 	if err != nil {
 		log.Fatal("failed to create messages table:", err)
 	}
+	_, err = conn.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS profiles(
+			bio TEXT NOT NULL,
+			username TEXT REFERENCES users(username),
+			nicname TEXT NOT NULL,
+			status TEXT NOT NULL,
+		)
+	`)
+	if err != nil {
+		log.Fatal("failed to create messages table:", err)
+	}
 
 	_, err = conn.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS files (

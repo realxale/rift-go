@@ -3,12 +3,12 @@ package chats
 import (
 	"backend/internal/auth"
 	"backend/internal/moderation"
+	"backend/internal/profiles"
 	"backend/pkg/database"
 	"encoding/json"
 	"time"
 	"errors"
 )
-
 // ManageRoomService обрабатывает запросы на управление комнатой (вход/выход/подпись)
 // Принимает запрос на подпись или выход из комнаты
 // Возвращает ошибку, если операция не удалась
@@ -216,6 +216,21 @@ func manager(c *WSM, Send chan any) error {
 		}
 		// Отправляем клиенту список новых сообщений
 		Send <- msgs
+		return nil
+
+	// Обработка изменения профиля
+	case "profile_change":
+		var req profiles.ProfileUpdateRequest
+		err := json.Unmarshal(c.Payload, &req)
+		if err != nil {
+			return err
+		}
+
+		err = profiles.ProfileUpdateService(req)
+		if err != nil {
+			return err
+		}
+		Send <- 101
 		return nil
 	}
 	// Если тип сообщения не распознан, просто выходим без ошибки
